@@ -188,3 +188,82 @@ test('per uuid events are only emitted when someone listens', async () => {
     client.abort();
     await ms.close();
 });
+
+// a miniserver behind a pulled cable: TCP is accepted (or not) but nothing ever answers
+function silentServer(answerApi) {
+    const sockets = new Set();
+    const http = require('http');
+    const server = answerApi
+        ? http.createServer((req, res) => {
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({LL: {control: 'dev/cfg/api', value: "{'snr': 'TEST', 'version':'8.3.3.21'}", Code: '200'}}));
+        })
+        : net.createServer();
+    // the websocket upgrade is accepted on TCP level but never answered
+    server.on('upgrade', () => {});
+    server.on('connection', (s) => {
+        sockets.add(s);
+        s.on('close', () => sockets.delete(s));
+    });
+    return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({
+        host: '127.0.0.1:' + server.address().port,
+        close: () => {
+            for (const s of sockets) s.destroy();
+            return new Promise((r) => server.close(r));
+        },
+    })));
+}
+
+test('a version check without answer fails after the connect timeout and retries', async () => {
+    const srv = await silentServer(false);
+    const client = new API(srv.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.connect_timeout = 300;
+    const delays = [];
+    client.on('reconnect', (delay) => delays.push(delay));
+    const failed = once(client, 'connect_failed', 2000);
+    client.connect();
+    try {
+        const [, reason] = await failed;
+        assert.match(reason, /version check failed \(no answer within 300 ms\)/);
+        await once(client, 'connect_failed', 3000);
+        assert.ok(delays.length >= 2 && delays[1] > delays[0] * 1.2, 'delays grow: ' + delays);
+    } finally {
+        client.abort();
+        await srv.close();
+    }
+});
+
+test('a websocket handshake without answer fails after the connect timeout', async () => {
+    const srv = await silentServer(true);
+    const client = new API(srv.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.connect_timeout = 300;
+    const failed = once(client, 'connect_failed', 2000);
+    const reconnect = once(client, 'reconnect', 2000);
+    const start = Date.now();
+    client.connect();
+    try {
+        const [, reason] = await failed;
+        assert.match(reason, /handshake has timed out/);
+        assert.ok(Date.now() - start < 1500);
+        await reconnect;
+    } finally {
+        client.abort();
+        await srv.close();
+    }
+});
+
+test('the version check does not keep an idle http connection open', async () => {
+    const ms = await new MockMiniserver().listen();
+    const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.connect();
+    try {
+        await once(client, 'get_structure_file');
+        await wait(200);
+        // only the websocket remains, no idle keep-alive socket of the http request
+        const count = await new Promise((resolve, reject) => ms.server.getConnections((err, n) => err ? reject(err) : resolve(n)));
+        assert.strictEqual(count, 1);
+    } finally {
+        client.abort();
+        await ms.close();
+    }
+});

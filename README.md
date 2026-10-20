@@ -10,6 +10,10 @@ Web Socket Loxone™ API for Node JS
   `connect_failed`, `reconnect` passes the delay in ms.
 - `abort()` closes the connection, cancels pending reconnects and emits `abort`.
 - If the Miniserver stops answering keepalives, the connection ends with `close` (`keepalive timeout`).
+- A connect attempt (version check and WebSocket handshake) fails after 10 s without answer, e.g. while
+  the Miniserver reboots or is unplugged. Without this limit an attempt hung about 2 minutes.
+  The limit can be changed with `client.connect_timeout = ms` before `connect()`.
+- The HTTP version check closes its socket right after the answer, so only the WebSocket stays open.
 
 ## Performance
 
