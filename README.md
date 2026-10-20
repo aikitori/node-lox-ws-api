@@ -11,6 +11,13 @@ Web Socket Loxone™ API for Node JS
 - `abort()` closes the connection, cancels pending reconnects and emits `abort`.
 - If the Miniserver stops answering keepalives, the connection ends with `close` (`keepalive timeout`).
 
+## Performance
+
+- The structure file (`LoxAPP3.json`) is kept in memory and only downloaded again after a reconnect when
+  `LoxAPPversion3` reports a different date.
+- Events per uuid (`update_event_value_<uuid>` etc.) are only emitted once a listener for such an event has
+  been added. `update_event_value`, `update_event_text`, … are always emitted.
+
 ## Tests
 
 `npm test` runs the tests against a mocked Miniserver (`test/mock-miniserver.js`).

@@ -138,3 +138,53 @@ test('missing keepalive answers lead to a reconnect', async () => {
     client.abort();
     await ms.close();
 });
+
+test('the structure file is only loaded again when it changed', async () => {
+    const ms = await new MockMiniserver().listen();
+    const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    const loads = () => ms.received.filter((m) => m === 'data/LoxAPP3.json').length;
+    client.connect();
+    await once(client, 'get_structure_file');
+    await wait(100);
+
+    ms.dropAll();
+    const [cached] = await once(client, 'get_structure_file', 5000);
+    assert.strictEqual(loads(), 1);
+    assert.strictEqual(cached.msInfo.serialNr, 'TEST');
+    await wait(100);
+    assert.strictEqual(ms.received.filter((m) => m === 'jdev/sps/enablebinstatusupdate').length, 2);
+
+    ms.options.structure = Object.assign({}, ms.options.structure, {lastModified: '2026-02-02 00:00:00'});
+    ms.dropAll();
+    const [fresh] = await once(client, 'get_structure_file', 5000);
+    assert.strictEqual(loads(), 2);
+    assert.strictEqual(fresh.lastModified, '2026-02-02 00:00:00');
+
+    client.abort();
+    await ms.close();
+});
+
+test('per uuid events are only emitted when someone listens', async () => {
+    const ms = await new MockMiniserver().listen();
+    const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    const emitted = [];
+    const emit = client.emit;
+    client.emit = function (name) {
+        emitted.push(name);
+        return emit.apply(this, arguments);
+    };
+    client.connect();
+    await once(client, 'get_structure_file');
+    await wait(50);
+
+    ms.sendValues([{uuid: UUID, value: 1}]);
+    await once(client, 'update_event_value');
+    assert.ok(!emitted.includes('update_event_value_' + UUID));
+
+    const specific = once(client, 'update_event_value_' + UUID);
+    ms.sendValues([{uuid: UUID, value: 2}]);
+    assert.deepStrictEqual(await specific, [2]);
+
+    client.abort();
+    await ms.close();
+});
