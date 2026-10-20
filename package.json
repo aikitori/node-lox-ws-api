@@ -1,14 +1,14 @@
 {
   "name": "node-lox-ws-api",
-  "version": "0.4.5-bugfix",
-  "description": "Web Socket Loxone™ API",
+  "version": "0.5.0",
+  "description": "Web Socket Loxone\u2122 API",
   "main": "lib/API.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test/test.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/arsiesis/node-lox-ws-api.git"
+    "url": "git+https://github.com/codm/node-lox-ws-api.git"
   },
   "keywords": [
     "Loxone",
@@ -25,9 +25,9 @@
   },
   "homepage": "https://github.com/codm/node-lox-ws-api#readme",
   "dependencies": {
-    "websocket": "1.0.31"
+    "ws": "^8.18.0"
   },
   "engines": {
-    "node": ">=4.2.6"
+    "node": ">=14"
   }
 }
