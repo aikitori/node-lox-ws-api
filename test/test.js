@@ -32,6 +32,7 @@ function freePort() {
 test('connects, logs in, loads the structure and parses value events', async () => {
     const ms = await new MockMiniserver().listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     client.connect();
     const [structure] = await once(client, 'get_structure_file');
     assert.strictEqual(structure.msInfo.serialNr, 'TEST');
@@ -54,6 +55,7 @@ test('connects, logs in, loads the structure and parses value events', async () 
 test('waits longer between attempts while the miniserver is unreachable', async () => {
     const port = await freePort();
     const client = new API('127.0.0.1:' + port, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     const delays = [];
     let failed = 0;
     let closes = 0;
@@ -73,6 +75,7 @@ test('waits longer between attempts while the miniserver is unreachable', async 
 test('a dropped connection emits close once and reconnects', async () => {
     const ms = await new MockMiniserver().listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     let closes = 0;
     client.on('close', () => closes++);
     client.connect();
@@ -90,6 +93,7 @@ test('a dropped connection emits close once and reconnects', async () => {
 test('abort stops a pending reconnect', async () => {
     const ms = await new MockMiniserver().listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     client.connect();
     await once(client, 'get_structure_file');
     ms.dropAll();
@@ -104,6 +108,7 @@ test('abort stops a pending reconnect', async () => {
 test('abort during the version check does not connect afterwards', async () => {
     const ms = await new MockMiniserver().listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     const aborted = once(client, 'abort');
     client.connect();
     client.abort();
@@ -116,6 +121,7 @@ test('abort during the version check does not connect afterwards', async () => {
 test('an invalid version check answer does not crash', async () => {
     const ms = await new MockMiniserver({apiBody: '<html>booting</html>'}).listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     client.connect();
     const [, reason] = await once(client, 'connect_failed');
     assert.match(reason, /version check failed/);
@@ -131,6 +137,7 @@ test('missing keepalive answers lead to a reconnect', async () => {
         }
     };
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 1000);
+    client.reconnect_delay_min = 1000;
     client.connect();
     await once(client, 'get_structure_file');
     const [, reason] = await once(client, 'close', 8000);
@@ -142,6 +149,7 @@ test('missing keepalive answers lead to a reconnect', async () => {
 test('the structure file is only loaded again when it changed', async () => {
     const ms = await new MockMiniserver().listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     const loads = () => ms.received.filter((m) => m === 'data/LoxAPP3.json').length;
     client.connect();
     await once(client, 'get_structure_file');
@@ -167,6 +175,7 @@ test('the structure file is only loaded again when it changed', async () => {
 test('per uuid events are only emitted when someone listens', async () => {
     const ms = await new MockMiniserver().listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     const emitted = [];
     const emit = client.emit;
     client.emit = function (name) {
@@ -217,6 +226,7 @@ function silentServer(answerApi) {
 test('a version check without answer fails after the connect timeout and retries', async () => {
     const srv = await silentServer(false);
     const client = new API(srv.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     client.connect_timeout = 300;
     const delays = [];
     client.on('reconnect', (delay) => delays.push(delay));
@@ -236,6 +246,7 @@ test('a version check without answer fails after the connect timeout and retries
 test('a websocket handshake without answer fails after the connect timeout', async () => {
     const srv = await silentServer(true);
     const client = new API(srv.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     client.connect_timeout = 300;
     const failed = once(client, 'connect_failed', 2000);
     const reconnect = once(client, 'reconnect', 2000);
@@ -255,6 +266,7 @@ test('a websocket handshake without answer fails after the connect timeout', asy
 test('the version check does not keep an idle http connection open', async () => {
     const ms = await new MockMiniserver().listen();
     const client = new API(ms.host, 'admin', 'secret', true, 'Hash', 30000);
+    client.reconnect_delay_min = 1000;
     client.connect();
     try {
         await once(client, 'get_structure_file');

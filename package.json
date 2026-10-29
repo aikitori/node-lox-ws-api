@@ -1,7 +1,7 @@
 {
   "name": "node-lox-ws-api",
-  "version": "0.5.2",
-  "description": "Web Socket Loxone\u2122 API",
+  "version": "0.5.3",
+  "description": "Web Socket Loxone™ API",
   "main": "lib/API.js",
   "scripts": {
     "test": "node test/test.js"
